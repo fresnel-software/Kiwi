@@ -25,13 +25,12 @@ SECRET_KEY = '^8y!)$0t7yq2+65%&_#@i^_o)eb3^q--y_$e7a_=t$%$1i)zuv'  # nosec:B105
 # Database settings
 DATABASES = {
     'default': {
-        'ENGINE': os.environ.get('KIWI_DB_ENGINE', 'django.db.backends.mysql'),
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.environ.get('KIWI_DB_NAME', 'kiwi'),
         'USER': os.environ.get('KIWI_DB_USER', 'kiwi'),
         'PASSWORD': os.environ.get('KIWI_DB_PASSWORD', 'kiwi'),
-        'HOST': os.environ.get('KIWI_DB_HOST', ''),
+        'HOST': os.environ.get('KIWI_DB_HOST', 'vitruvi-devops.cgiy86qwhuzb.us-west-2.rds.amazonaws.com'),
         'PORT': os.environ.get('KIWI_DB_PORT', ''),
-        'OPTIONS': {},
     },
 }
 
