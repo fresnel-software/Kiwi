@@ -25,11 +25,11 @@ SECRET_KEY = '^8y!)$0t7yq2+65%&_#@i^_o)eb3^q--y_$e7a_=t$%$1i)zuv'
 # Database settings
 DATABASES = {
     'default': {
-        'ENGINE': os.environ.get('KIWI_DB_ENGINE', 'django.db.backends.mysql'),
+        'ENGINE': os.environ.get('KIWI_DB_ENGINE', 'django.db.backends.postgresql'),
         'NAME': os.environ.get('KIWI_DB_NAME', 'kiwi'),
         'USER': os.environ.get('KIWI_DB_USER', 'kiwi'),
         'PASSWORD': os.environ.get('KIWI_DB_PASSWORD', 'kiwi'),
-        'HOST': os.environ.get('KIWI_DB_HOST', ''),
+        'HOST': os.environ.get('KIWI_DB_HOST', 'vitruvi-devops.cgiy86qwhuzb.us-west-2.rds.amazonaws.com'),
         'PORT': os.environ.get('KIWI_DB_PORT', ''),
         'OPTIONS': {},
     },
@@ -137,7 +137,7 @@ HELP_MENU_ITEMS = [
 # Don't put anything in this directory yourself; store your static files
 # in apps' "static/" subdirectories and in STATICFILES_DIRS.
 # Example: "/var/www/example.com/static/"
-STATIC_ROOT = '/Kiwi/static/'
+STATIC_ROOT = 'static/'
 
 
 # WARNING: Do not change this unless you know what you are doing !!!
@@ -212,7 +212,7 @@ USE_TZ = False
 TIME_ZONE = 'Etc/UTC'
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
-MEDIA_ROOT = '/Kiwi/uploads'
+MEDIA_ROOT = '/uploads'
 
 # URL that handles the media served from MEDIA_ROOT. Make sure to use a
 # trailing slash.
