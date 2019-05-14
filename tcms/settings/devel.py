@@ -12,20 +12,20 @@ DEBUG = True
 # Database settings
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('KIWI_DB_NAME', 'kiwi'),
-        'USER': os.environ.get('KIWI_DB_USER', 'kiwi'),
-        'PASSWORD': os.environ.get('KIWI_DB_PASSWORD', 'kiwi'),
-        'HOST': os.environ.get('KIWI_DB_HOST', 'vitruvi-devops.cgiy86qwhuzb.us-west-2.rds.amazonaws.com'),
-        'PORT': os.environ.get('KIWI_DB_PORT', ''),
-    },
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': '/tmp/kiwi.devel.sqlite',  # nosec:B108:hardcoded_tmp_directory
+        'USER': 'root',
+        'PASSWORD': '',
+        'HOST': '',
+        'PORT': '',
+    }
 }
 
 # django-debug-toolbar settings
 
-# MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']  # noqa: F405
+MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']  # noqa: F405
 
-# INSTALLED_APPS += ['debug_toolbar', 'django_extensions']  # noqa: F405
+INSTALLED_APPS += ['debug_toolbar', 'django_extensions']  # noqa: F405
 
 MEDIA_ROOT = os.path.join(TCMS_ROOT_PATH, '..', 'uploads')  # noqa: F405
 
