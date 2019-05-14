@@ -79,11 +79,6 @@ class BaseCaseForm(forms.Form):
         queryset=Category.objects.none(),
         empty_label=None,
     )
-    component = forms.ModelMultipleChoiceField(
-        label="Components",
-        queryset=Component.objects.none(),
-        required=False,
-    )
     notes = forms.CharField(
         label='Notes',
         widget=forms.Textarea,
@@ -114,11 +109,8 @@ class BaseCaseForm(forms.Form):
         if product_id:
             self.fields['category'].queryset = Category.objects.filter(
                 product__id=product_id)
-            self.fields['component'].queryset = Component.objects.filter(
-                product__id=product_id)
         else:
             self.fields['category'].queryset = Category.objects.all()
-            self.fields['component'].queryset = Component.objects.all()
 
 
 class NewCaseForm(BaseCaseForm):
@@ -127,10 +119,6 @@ class NewCaseForm(BaseCaseForm):
             return TestCaseStatus.get_proposed()
 
         return self.cleaned_data['case_status']
-
-
-class EditCaseForm(BaseCaseForm):
-    pass
 
 
 class CaseNotifyForm(forms.Form):

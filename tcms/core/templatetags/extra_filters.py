@@ -4,13 +4,18 @@
 
 import bleach
 import markdown
-from bleach_whitelist import markdown_tags, markdown_attrs
+from bleach_whitelist import markdown_tags, markdown_attrs, print_tags
 
 from django import template
 from django.utils.safestring import mark_safe
 from django.contrib.messages import constants as messages
 
 register = template.Library()
+
+
+@register.filter(name='is_list')
+def is_list(variable):
+    return isinstance(variable, list)
 
 
 @register.filter(name='markdown2html')
@@ -22,9 +27,14 @@ def markdown2html(md_str):
         md_str = ''
 
     rendered_md = markdown.markdown(md_str,
-                                    extensions=['markdown.extensions.fenced_code',
-                                                'markdown.extensions.nl2br'])
-    html = bleach.clean(rendered_md, markdown_tags, markdown_attrs)
+                                    extensions=[
+                                        'markdown.extensions.fenced_code',
+                                        'markdown.extensions.nl2br',
+                                        'markdown.extensions.tables',
+                                    ])
+    html = bleach.clean(rendered_md,
+                        markdown_tags + print_tags,
+                        markdown_attrs)
     return mark_safe(html)  # nosec:B308:blacklist
 
 

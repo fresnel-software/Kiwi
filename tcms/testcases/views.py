@@ -23,11 +23,10 @@ from tcms.testcases.models import TestCase, TestCaseStatus, \
     TestCasePlan
 from tcms.management.models import Priority, Tag
 from tcms.testplans.models import TestPlan
-from tcms.testruns.models import TestCaseRun
-from tcms.testruns.models import TestCaseRunStatus
+from tcms.testruns.models import TestExecution
+from tcms.testruns.models import TestExecutionStatus
 from tcms.testcases.forms import NewCaseForm, \
-    SearchCaseForm, EditCaseForm, CaseNotifyForm, \
-    CloneCaseForm
+    SearchCaseForm, CaseNotifyForm, CloneCaseForm
 from tcms.testplans.forms import SearchPlanForm
 from tcms.testcases.fields import MultipleEmailField
 
@@ -95,20 +94,6 @@ def group_case_bugs(bugs):
     return grouped_bugs
 
 
-def create_testcase(request, form, test_plan):
-    """Create testcase"""
-    test_case = TestCase.create(author=request.user, values=form.cleaned_data)
-
-    # Assign the case to the plan
-    if test_plan:
-        test_plan.add_case(test_case)
-
-    # Add components into the case
-    for component in form.cleaned_data['component']:
-        test_case.add_component(component=component)
-    return test_case
-
-
 @method_decorator(permission_required('testcases.add_testcase'), name='dispatch')
 class NewCaseView(TemplateView):
 
@@ -125,7 +110,8 @@ class NewCaseView(TemplateView):
 
         context_data = {
             'test_plan': test_plan,
-            'form': form
+            'form': form,
+            'notify_form': CaseNotifyForm(),
         }
 
         return render(request, self.template_name, context_data)
@@ -139,8 +125,10 @@ class NewCaseView(TemplateView):
         else:
             form.populate()
 
-        if form.is_valid():
-            test_case = create_testcase(request, form, test_plan)
+        notify_form = CaseNotifyForm(request.POST)
+
+        if form.is_valid() and notify_form.is_valid():
+            test_case = self.create_test_case(form, notify_form, test_plan)
             if test_plan:
                 return HttpResponseRedirect(
                     '%s?from_plan=%s' % (reverse('testcases-get', args=[test_case.pk]),
@@ -150,10 +138,23 @@ class NewCaseView(TemplateView):
 
         context_data = {
             'test_plan': test_plan,
-            'form': form
+            'form': form,
+            'notify_form': notify_form
         }
 
         return render(request, self.template_name, context_data)
+
+    def create_test_case(self, form, notify_form, test_plan):
+        """Create new test case"""
+        test_case = TestCase.create(author=self.request.user, values=form.cleaned_data)
+
+        # Assign the case to the plan
+        if test_plan:
+            test_plan.add_case(test_case)
+
+        update_case_email_settings(test_case, notify_form)
+
+        return test_case
 
 
 def get_testcaseplan_sortkey_pk_for_testcases(plan, tc_ids):
@@ -293,7 +294,7 @@ def query_testcases_from_request(request, plan=None):
     :param plan: instance of TestPlan to restrict only those TestCases belongs to
                  the TestPlan. Can be None. As you know, query from all TestCases.
     """
-    search_form = build_cases_search_form(request)
+    search_form = build_cases_search_form(request, True, plan)
 
     action = request.POST.get('a')
     if action == 'initial':
@@ -490,8 +491,8 @@ class SimpleTestCaseView(TemplateView):
         return data
 
 
-class TestCaseCaseRunDetailPanelView(TemplateView):
-    """Display case run detail in run page"""
+class TestCaseExecutionDetailPanelView(TemplateView):
+    """Display execution detail in run page"""
 
     template_name = 'case/get_details_case_run.html'
     caserun_id = None
@@ -510,27 +511,26 @@ class TestCaseCaseRunDetailPanelView(TemplateView):
         data = super().get_context_data(**kwargs)
 
         case = TestCase.objects.get(pk=kwargs['case_id'])
-        case_run = TestCaseRun.objects.get(pk=self.caserun_id)
+        execution = TestExecution.objects.get(pk=self.caserun_id)
 
         # Data of TestCase
         test_case_text = case.get_text_with_version(self.case_text_version)
 
-        # Data of TestCaseRun
-        caserun_comments = get_comments(case_run)
+        # Data of TestExecution
+        execution_comments = get_comments(execution)
 
-        caserun_status = TestCaseRunStatus.objects.values('pk', 'name')
-        caserun_status = caserun_status.order_by('pk')
-        bugs = group_case_bugs(case_run.case.get_bugs().order_by('bug_id'))
+        execution_status = TestExecutionStatus.objects.values('pk', 'name').order_by('pk')
+        bugs = group_case_bugs(execution.case.get_bugs().order_by('bug_id'))
 
         data.update({
             'test_case': case,
             'test_case_text': test_case_text,
 
-            'test_case_run': case_run,
-            'comments_count': len(caserun_comments),
-            'caserun_comments': caserun_comments,
-            'caserun_logs': case_run.history.all(),
-            'test_status': caserun_status,
+            'execution': execution,
+            'comments_count': len(execution_comments),
+            'execution_comments': execution_comments,
+            'execution_logs': execution.history.all(),
+            'execution_status': execution_status,
             'grouped_case_bugs': bugs,
         })
 
@@ -548,7 +548,7 @@ def get(request, case_id):
     except ObjectDoesNotExist:
         raise Http404
 
-    # Get the test case runs
+    # Get the test executions
     tcrs = test_case.case_run.select_related(
         'run', 'tested_by',
         'assignee', 'case',
@@ -668,7 +668,7 @@ def update_testcase(request, test_case, tc_form):
 
 
 @permission_required('testcases.change_testcase')
-def edit(request, case_id, template_name='case/edit.html'):
+def edit(request, case_id):
     """Edit case detail"""
     try:
         test_case = TestCase.objects.select_related().get(case_id=case_id)
@@ -676,9 +676,12 @@ def edit(request, case_id, template_name='case/edit.html'):
         raise Http404
 
     test_plan = plan_from_request_or_none(request)
+    from_plan = ""
+    if test_plan:
+        from_plan = "?from_plan=%d" % test_plan.pk
 
     if request.method == "POST":
-        form = EditCaseForm(request.POST)
+        form = NewCaseForm(request.POST)
         if request.POST.get('product'):
             form.populate(product_id=request.POST['product'])
         elif test_plan:
@@ -689,51 +692,8 @@ def edit(request, case_id, template_name='case/edit.html'):
         n_form = CaseNotifyForm(request.POST)
 
         if form.is_valid() and n_form.is_valid():
-
             update_testcase(request, test_case, form)
-
-            # Notification
             update_case_email_settings(test_case, n_form)
-
-            from_plan = ""
-            if request.POST.get('from_plan'):
-                from_plan = "?from_plan=%s" % request.POST.get('from_plan')
-
-            # Returns
-            if request.POST.get('_continue'):
-                return HttpResponseRedirect(
-                    reverse('testcases-edit', args=[case_id, ]) + from_plan
-                )
-
-            if request.POST.get('_continuenext'):
-                if not test_plan:
-                    raise Http404
-
-                # find out test case list which belong to the same
-                # classification
-                if test_case.case_status.is_confirmed():
-                    pk_list = test_plan.case.filter(case_status=TestCaseStatus.get_confirmed())
-                else:
-                    pk_list = test_plan.case.exclude(case_status=TestCaseStatus.get_confirmed())
-                pk_list = list(pk_list.defer('case_id').values_list('pk', flat=True))
-                pk_list.sort()
-
-                # Get the next case
-                _prev_case, next_case = test_case.get_previous_and_next(pk_list=pk_list)
-                return HttpResponseRedirect(
-                    reverse('testcases-edit', args=[next_case.pk, ]) + from_plan
-                )
-
-            if request.POST.get('_returntoplan'):
-                if not test_plan:
-                    raise Http404
-                if test_case.case_status.is_confirmed():
-                    return HttpResponseRedirect('%s#testcases' % (
-                        reverse('test_plan_url_short', args=[test_plan.pk, ]),
-                    ))
-                return HttpResponseRedirect('%s#reviewcases' % (
-                    reverse('test_plan_url_short', args=[test_plan.pk, ]),
-                ))
 
             return HttpResponseRedirect(
                 reverse('testcases-get', args=[case_id, ]) + from_plan
@@ -761,7 +721,7 @@ def edit(request, case_id, template_name='case/edit.html'):
         if test_case.default_tester_id:
             default_tester = test_case.default_tester.email
 
-        form = EditCaseForm(initial={
+        form = NewCaseForm(initial={
             'summary': test_case.summary,
             'default_tester': default_tester,
             'requirement': test_case.requirement,
@@ -774,7 +734,6 @@ def edit(request, case_id, template_name='case/edit.html'):
             'product': test_case.category.product_id,
             'category': test_case.category_id,
             'notes': test_case.notes,
-            'component': components,
             'text': test_case.text,
         })
 
@@ -786,7 +745,7 @@ def edit(request, case_id, template_name='case/edit.html'):
         'form': form,
         'notify_form': n_form,
     }
-    return render(request, template_name, context_data)
+    return render(request, 'testcases/mutable.html', context_data)
 
 
 @permission_required('testcases.add_testcase')

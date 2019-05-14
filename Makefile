@@ -5,7 +5,6 @@ FLAKE8_EXCLUDE=.git
 .PHONY: flake8
 flake8:
 	@flake8 --exclude=$(FLAKE8_EXCLUDE) tcms *.py kiwi_lint
-	@flake8 --exclude=$(FLAKE8_EXCLUDE) tcms_api
 
 
 DJANGO_SETTINGS_MODULE="tcms.settings.test"
@@ -53,13 +52,11 @@ check: flake8 test
 .PHONY: pylint
 pylint:
 	pylint -d missing-docstring *.py kiwi_lint/
-	PYTHONPATH=. pylint --load-plugins=pylint_django --load-plugins=kiwi_lint -d missing-docstring -d duplicate-code tcms/
-	PYTHONPATH=. pylint --load-plugins=kiwi_lint --extension-pkg-whitelist=kerberos \
-	    -d missing-docstring -d duplicate-code tcms_api/*.py tcms_api/tcms_api/
+	PYTHONPATH=.:./tcms/ pylint --load-plugins=pylint_django --load-plugins=kiwi_lint -d missing-docstring -d duplicate-code tcms/
 
 .PHONY: bandit
 bandit:
-	bandit -r *.py tcms/ tcms_api/ kiwi_lint/
+	bandit -r *.py tcms/ kiwi_lint/
 
 
 .PHONY: bandit_site_packages

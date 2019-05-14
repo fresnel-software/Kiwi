@@ -11,8 +11,17 @@ find . -type f -name '*.pyc' -delete
 find . -type d -name __pycache__ -delete
 find . -type d -name '*.egg-info' | xargs rm -rf
 rm -rf build/ .cache/ dist/ .eggs/ .tox/ .venv/
-rm -rf tcms_api/build/ tcms_api/dist/
+rm -rf tcms/node_modules/
 
+echo "..... Installing npm dependencies"
+pushd tcms/
+npm install
+find ./node_modules -type d -empty -delete
+# workaround ValueError: ZIP does not support timestamps before 1980
+# for wheel packages because some NPM files have their timestamp
+# as 01-01-1970
+find ./node_modules -type f  -exec touch {} +
+popd
 
 # then build the packages
 echo "..... Building PyPI packages for kiwitcms"
@@ -21,21 +30,12 @@ $(which python) setup.py sdist >/dev/null
 $(which python) setup.py bdist_wheel >/dev/null
 set +e
 
-echo "..... Building PyPI packages for tcms-api"
-set -e
-pushd tcms_api/
-$(which python) setup.py sdist >/dev/null
-$(which python) setup.py bdist_wheel >/dev/null
-mv dist/tcms*api* ../dist/
-popd
-set +e
-
 # check rst formatting of README before building the package
 echo "..... Check rst formatting for PyPI"
 twine check dist/* || exit 1
 
 # then run some sanity tests
-for PKG_NAME in kiwitcms tcms; do
+for PKG_NAME in kiwitcms; do
     echo "..... Searching for .pyc files inside the built packages"
     matched_files=`tar -tvf dist/$PKG_NAME-*.tar.gz | grep -c "\.pyc"`
     if [ "$matched_files" -gt "0" ]; then
@@ -69,9 +69,8 @@ echo "..... Trying to install the new tarballs inside a virtualenv"
 virtualenv -q -p $(which python) .venv/test-tarball
 source .venv/test-tarball/bin/activate
 pip install --upgrade setuptools pip
-pip install --no-binary :all: -f dist/ kiwitcms tcms-api
+pip install --no-binary :all: -f dist/ kiwitcms
 pip freeze | grep kiwitcms
-pip freeze | grep tcms-api
 deactivate
 rm -rf .venv/
 
@@ -80,10 +79,9 @@ virtualenv -q -p $(which python) .venv/test-wheel
 source .venv/test-wheel/bin/activate
 pip install --upgrade setuptools pip
 pip install -r requirements/tarballs.txt
-pip install kerberos pycparser
-pip install --only-binary :all: -f dist/ kiwitcms tcms_api
+pip install pycparser
+pip install --only-binary :all: -f dist/ kiwitcms
 pip freeze | grep kiwitcms
-pip freeze | grep tcms-api
 deactivate
 rm -rf .venv/
 

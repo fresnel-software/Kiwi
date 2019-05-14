@@ -3,7 +3,7 @@ FROM centos:centos7
 RUN rpm -Uhv https://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/e/epel-release-7-11.noarch.rpm && \
     yum -y --setopt=tsflags=nodocs install centos-release-scl && \
     yum -y --setopt=tsflags=nodocs install rh-python36 gcc mariadb-devel mariadb \
-    libxml2-devel libxslt-devel httpd-devel mod_wsgi mod_ssl npm gettext && \
+    postgresql-devel httpd-devel mod_wsgi mod_ssl gettext && \
     yum -y update --setopt=tsflags=nodocs && \
     yum clean all
 
@@ -37,6 +37,9 @@ RUN virtualenv /venv
 ENV VIRTUAL_ENV /venv
 ENV PATH /venv/bin:$PATH
 
+# because we get some errors from other packages which need newer versions
+RUN pip install --upgrade pip setuptools
+
 # replace standard mod_wsgi with one compiled for Python 3
 RUN pip install --no-cache-dir --upgrade pip mod_wsgi && \
     ln -fs /venv/lib64/python3.6/site-packages/mod_wsgi/server/mod_wsgi-py36.cpython-36m-x86_64-linux-gnu.so \
@@ -49,11 +52,7 @@ RUN pip install --no-cache-dir /Kiwi/kiwitcms-*.tar.gz
 # install DB requirements b/c the rest should already be installed
 COPY ./requirements/ /Kiwi/requirements/
 RUN pip install --no-cache-dir -r /Kiwi/requirements/mariadb.txt
-
-# install npm dependencies
-COPY package.json /Kiwi/
-RUN cd /Kiwi/ && npm install && \
-    find ./node_modules -type d -empty -delete
+RUN pip install --no-cache-dir -r /Kiwi/requirements/postgres.txt
 
 COPY ./manage.py /Kiwi/
 COPY ./etc/kiwitcms/ssl/ /Kiwi/ssl/
