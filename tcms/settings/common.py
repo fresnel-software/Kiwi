@@ -104,7 +104,7 @@ CACHES = {
 # Don't put anything in this directory yourself; store your static files
 # in apps' "static/" subdirectories and in STATICFILES_DIRS.
 # Example: "/var/www/example.com/static/"
-STATIC_ROOT = 'static/'
+STATIC_ROOT = '~/Kiwi/static/'
 
 
 # WARNING: Do not change this unless you know what you are doing !!!
@@ -183,7 +183,7 @@ USE_TZ = os.environ.get('KIWI_USE_TZ', 'False').lower() == 'true'
 TIME_ZONE = os.environ.get('KIWI_TIME_ZONE', 'Etc/UTC')
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
-MEDIA_ROOT = '/uploads'
+MEDIA_ROOT = '/Kiwi/uploads'
 
 # URL that handles the media served from MEDIA_ROOT. Make sure to use a
 # trailing slash.
